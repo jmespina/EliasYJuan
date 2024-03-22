@@ -372,3 +372,5 @@ Z80CodeFiles/Sprite.z80asm
 Z80CodeFiles/mapa*.*
 Z80CodeFiles/nave*.*
 Z80CodeFiles/rutina*.*
+Z80UnitTests/
+ZxBasicFiles/
