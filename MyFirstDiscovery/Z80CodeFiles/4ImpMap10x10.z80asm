@@ -1,4 +1,33 @@
-﻿ImpMap10x10:
+﻿PrintBCD1d:
+push af
+ld      a, (hl)     ; Carga en A el número a pintar
+and     $f0         ; Se queda con las decenas
+rra
+rra
+rra
+rra                 ; Lo pone en los bits 0 a 3
+add     a, '0'      ; Le suma el carácter 0
+;rst     $10         ; Pinta el dígito
+
+ld      a, (hl)     ; Carga el A el número a pintar
+and     $0f         ; Se queda con las unidades
+add     a, '0'      ; Le suma el carácter 0
+rst     $10         ; Pinta el dígito
+pop af
+
+ret
+
+
+
+At:
+push	de	; Preserva el valor de DE
+push	hl	; Preserva el valor de HL
+call	$0a23	; Llama a la rutina de la ROM
+pop		hl	; Recupera el valor de HL
+pop		de	; Recupera el valor de DE
+ret
+
+ImpMap10x10:
 	LD IX, (DM_MAP10x10)  
 
     ld      bc, $0e0c

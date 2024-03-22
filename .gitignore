@@ -361,3 +361,14 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+#añadido por mí
+Rom/
+Z80CodeFiles/corto*.*
+*.zip
+*.rar
+Z80CodeFiles/Code.z80asm
+Z80CodeFiles/Sprite.z80asm
+Z80CodeFiles/mapa*.*
+Z80CodeFiles/nave*.*
+Z80CodeFiles/rutina*.*
