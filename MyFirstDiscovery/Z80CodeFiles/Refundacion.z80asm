@@ -1,0 +1,1026 @@
+﻿; Put your Z80 assembly code into code files
+Start:
+; Ejemplo impresion mapa de 16x16 desde array global
+ORG     35000
+
+; de https://wiki.speccy.org/cursos/ensamblador/gfx5_mapeados 
+
+    ld hl, sokoban1_gfx
+    ld (DM_SPRITES), hl
+    ld hl, sokoban1_attr
+    ld (DM_ATTRIBS), hl
+    ld hl, mapa_ejemplo
+    ld (DM_MAP), hl
+	
+	LD HL, mapa_pantalla16x12 ;JM
+    ;LD HL, mapa_pantalla20x20 ;JM
+    LD (DM_MAP10x10), HL  
+    ld a, ANCHO_PANTALLA
+    ld (DM_WIDTH), a
+    ld a, ALTO_PANTALLA
+    ld (DM_HEIGHT), a
+    xor a
+    ld (DM_COORD_X), a
+    ld (DM_COORD_Y), a
+    ld (DM_MAPX), a            ; Establecemos MaPX, MaPY iniciales = 0
+    ld (DM_MAPY), a
+
+CALL pintarBicho ; inicializamos
+ 
+redraw:
+    call DrawMap_16x16_Map     ; Imprimir pantalla de mapa
+    call DrawSprite_16x16_LD ; pintamos el bicho moviendose
+    ;call ImpMap10x10 ; Imprimimos el mapa 10x10 (y lo borramos)
+    halt
+    halt
+    halt
+    
+bucle:
+    call LEER_TECLADO          ; Leemos el estado de O, P, Q, A
+    
+    bit 0, a                   ; Modificamos MAPX y MAPY segun OPQA
+    jr z, nopulsada_q
+    ;call Map_Dec_Y
+    CALL podemosIrArriba
+    jr redraw
+nopulsada_q:
+    bit 1, a
+    jr z, nopulsada_a
+    CALL podemosIrAbajo
+    ;call Map_Inc_Y
+    jr redraw
+nopulsada_a:
+    bit 2, a
+    jr z, nopulsada_p
+	CALL podemosIrDer ; mi rutina
+    ;call Map_Inc_X
+    jr redraw
+nopulsada_p:
+    bit 3, a
+    jr z, nopulsada_o
+    CALL podemosIrIzq
+    ;call Map_Dec_X
+    jr redraw
+nopulsada_o:
+    jr bucle
+ 
+loop:
+  jr loop
+
+podemosIrArriba:
+    ld HL, (DS_COORD_Y)
+    DEC L
+    SRL L
+    LD DE, ANCHO_PANTALLA
+
+    CALL MULT_HL_POR_DE
+    LD BC, (DS_COORD_X)
+    LD B,0
+    SRL C ;en C tengo la posición del bicho. Como la posicion del bicho va en bloques de 8x8 y el mapa de colisiones va de 16x16, la tengo que dividir por dos
+    jp nc, parArriba ;segun el bit de carry salto o no
+
+    ;consideramos que C era impar
+    INC C ;si llega aqui es impar, deberia mirar a izq y derecha
+
+    ADD HL,BC  ;si salta continua la ejecución normal del programa
+    EX DE,HL
+    LD IX,(DM_MAP10x10)
+    ADD IX,DE
+
+    LD A,(IX+0)
+    EXX
+    LD C,A
+    CP 0
+    EXX
+    jp z, comprobarArribaIzq
+RET
+
+comprobarArribaIzq:
+    dec C
+parArriba: ;si C era par no hacemos nada
+    ld HL,(DS_COORD_Y)
+    DEC HL
+    SRL L
+    LD DE,ANCHO_PANTALLA
+
+    CALL MULT_HL_POR_DE
+    ADD HL,BC
+    EX DE,HL
+    LD IX,(DM_MAP10x10)
+    ADD IX,DE
+
+    LD A,(IX+0)
+    LD C,A
+    CP 0
+    jp z, moverBichoArriba
+
+RET
+
+moverBichoArriba:
+    ld		a, (DS_COORD_Y)
+    ld      c,a
+    cp 0
+    ret z
+	dec c ;
+    ld      a,c
+    ld		(DS_COORD_Y), a
+RET
+
+podemosIrIzq:
+    ld HL, (DS_COORD_Y)
+    SRL L
+    jp nc, parIzquierda   ; si es par, funciona bien
+                        ; ahora es impar y debe mirar abajo
+    INC L    
+    ld DE, ANCHO_PANTALLA
+    CALL MULT_HL_POR_DE                                                   
+    
+    LD BC, (DS_COORD_X)
+    LD B,0
+    DEC C
+    SRL C
+    ADD HL,BC
+    EX DE,HL
+    LD IX, (DM_MAP10x10)
+    ADD IX,DE
+    LD A, (IX+0)
+    LD C,A
+    CP 0
+    ret nz
+
+parIzquierda:
+    ld hl, (DS_COORD_Y)  ; repetimos el inicio de la rutina por si los valores se han perdido
+    SRL L   ; ahora si es impar, mira arriba
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    DEC c ;porque vamos a ver que hay a la izq
+    SRL C
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    jp z, moverBichoIzq  
+RET
+
+moverBichoIzq:
+    ld		a, (DS_COORD_X)
+    ld      c,a
+
+    ld      a, SHIP_TOP_L + $01 
+    sub     c ;    
+    jp z, mueveMapaDX
+
+    dec c
+    ld a,c
+    ld		(DS_COORD_X),a
+RET
+
+;-------------------------------------------------------------
+; Incrementar la variable DM_MAPX para scrollear a la derecha.
+;-------------------------------------------------------------
+MueveMapaDX:
+    ld hl, (DM_MAPX)
+    ld a, h
+    and a
+    jr nz, mapdecx_doit        ; Verificamos que DM_MAPX no sea 0
+    ld a, l
+    and a
+    ret z
+    mapdecx_doit:
+    dec hl
+    ld (DM_MAPX), hl           ; No es cero, podemos decrementar
+    
+RET
+
+podemosIrAbajo:
+	; vamos a implementar comprobacion antes de ir abajo
+	ld hl, (DS_COORD_Y)
+    SRL l
+    INC hl
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    SRL c ; dividimos por 2
+    jp nc, parAbajo ;segun el bit de carry salto o no
+
+    INC C ;si llega aqui es impar, deberia mirar a izq y derecha
+            ; con el inc mira a la derecha y falla
+            ; asi que voy a duplicar el codigo y luego luego mira a la izquierda
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    
+    ld a, (IX+0)
+    exx
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    exx
+    jp z, comprobarAbajoIzq
+    RET
+
+comprobarAbajoIzq:
+    dec c
+parAbajo:    
+	ld hl, (DS_COORD_Y)
+    SRL l
+    INC hl
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    jp z, moverBichoAbajo
+ret
+
+moverBichoAbajo:
+    ;CALL Map_Inc_Y
+    ld		a, (DS_COORD_Y)
+    ld      c,a
+	inc c ;
+    ld      a,c
+    ld		(DS_COORD_Y), a
+ret
+
+
+moverBichoDerecha:
+    
+    ld		a, (DS_COORD_X)
+    ld      c,a
+
+    ld      a, SHIP_TOP_R + $01 
+    sub     c ;    
+    jp z, MueveMapaIX
+   
+    inc c ;
+    ld      a,c
+    ld		(DS_COORD_X), a
+    
+RET 
+
+podemosIrDer:                  
+
+    ld hl, (DS_COORD_Y)
+    SRL L   ; ahora si es impar, mira arriba
+    jp nc, parDerecha   ; si es par, funciona bien
+                        ; ahora es impar y debe mirar abajo
+    INC L
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    INC c ;porque vamos a ver que hay a la derecha
+    INC C
+    SRL C
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    ret nz
+
+parDerecha:
+    ld hl, (DS_COORD_Y)  ; repetimos el inicio de la rutina por si los valores se han perdido
+    SRL L   ; ahora si es impar, mira arriba
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    INC c ;porque vamos a ver que hay a la derecha
+    INC C
+    SRL C
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    jp z, moverBichoDerecha
+RET
+
+SHIP_TOP_L:	EQU $02
+;SHIP_TOP_R: EQU $10
+SHIP_TOP_R: EQU $0D
+
+;-------------------------------------------------------------
+; LEER_TECLADO: Lee el estado de O, P, Q, A, y devuelve
+; en A el estado de las teclas (1=pulsada, 0=no pulsada).
+; El byte está codificado tal que:
+;
+; BITS            3    2     1   0
+; SIGNIFICADO   LEFT RIGHT DOWN  UP
+;-------------------------------------------------------------
+LEER_TECLADO:
+    ld d, 0
+    ld bc, $fbfe
+    in a, (c)
+    bit 0, a                   ; Leemos la tecla Q
+    jr nz, Control_no_up       ; No pulsada, no cambiamos nada en D
+    set 0, d                   ; Pulsada, ponemos a 1 el bit 0
+Control_no_up:
+ 
+    ld bc, $fdfe
+    in a, (c)
+    bit 0, a                   ; Leemos la tecla A
+    jr nz, Control_no_down     ; No pulsada, no cambianos nada en D
+    set 1, d                   ; Pulsada, ponemos a 1 el bit 1
+Control_no_down:
+ 
+    ld bc, $dffe
+    in a, (c)
+    bit 0, a                   ; Leemos la tecla P
+    jr nz, Control_no_right    ; No pulsada
+    set 2, d                   ; Pulsada, ponemos a 1 el bit 2
+ 
+Control_no_right:
+                               ; BC ya vale $dffe, (O y P en misma fila)
+    bit 1, a                   ; Tecla O
+    jr nz, Control_no_left
+    set 3, d
+Control_no_left:
+ 
+    ld a, d                    ; Devolvemos en A el estado de las teclas
+    ret
+ 
+;-------------------------------------------------------------
+DM_SPRITES  DEFW   0
+DM_ATTRIBS  DEFW   0
+DM_MAP      DEFW   0
+DM_MAP10x10 DEFW   0 ;JM
+DM_COORD_X  DEFB   0
+DM_COORD_Y  DEFB   0
+DM_WIDTH    DEFB   0
+DM_HEIGHT   DEFB   0
+DM_MAPX     DEFW   0
+DM_MAPY     DEFW   0
+ 
+;-------------------------------------------------------------
+; Algunos valores hardcodeados para el ejemplo, en la rutina
+; final se puede utilizar DM_WIDTH y DM_HEIGHT.
+;-------------------------------------------------------------
+;ANCHO_MAPA_TILES       EQU   64
+;ALTO_MAPA_TILES        EQU   12
+ANCHO_MAPA_TILES       EQU   48
+ALTO_MAPA_TILES        EQU   12
+ANCHO_PANTALLA         EQU   16
+ALTO_PANTALLA          EQU   12
+
+ 
+;;; Rutina de la ROM del Spectrum, en otros sistemas
+;;; sustituir por una rutina especifica de multiplicacion
+MULT_HL_POR_DE         EQU   $30a9
+ 
+
+ 
+;---------------------------------------------------------------
+; DrawMap_16x16_Map:
+; Imprime una pantalla de tiles de 16x16 pixeles.
+;
+; Entrada (paso por parametros en memoria):
+; Direccion             Parametro
+; --------------------------------------------------------------
+; DM_SPRITES (2 bytes)  Direccion de la tabla de tiles.
+; DM_ATTRIBS (2 bytes)  Direccion de la tabla de atributos.
+; DM_MAP     (2 bytes)  Direccion de la pantalla en memoria.
+; DM_COORD_X (1 byte)   Coordenada X-Inicial en baja resolucion.
+; DM_COORD_Y (1 byte)   Coordenada Y-Inicial en baja resolucion.
+; DM_WIDTH   (1 byte)   Ancho del mapa en tiles
+; DM_HEIGHT  (1 byte)   Alto del mapa en tiles
+; DM_MAPX    (2 bytes)  Coordenada X en mapa.
+; DM_MAPY    (2 bytes)  Coordenada Y en mapa.
+;---------------------------------------------------------------
+DrawMap_16x16_Map:
+ 
+    ld ix, (DM_MAP)           ; IX apunta al mapa
+    EXX
+    LD DE, (DM_MAP10x10)           ; DE apunta al mapa de colisiones 
+    EXX
+	
+    ;;; NUEVO: Posicionamos el puntero de mapa en posicion inicial.
+    ld hl, (DM_MAPY)
+    ld de, ANCHO_MAPA_TILES
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DM_MAPX)
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ;;; FIN NUEVO
+    
+
+    ld a, (DM_HEIGHT)
+    ld b, a                   ; B = ALTO_EN_TILES (para bucle altura)
+ 
+drawmg16_yloop:
+    push bc                   ; Guardamos el valor de B
+ 
+    ld a, (DM_HEIGHT)         ; A = ALTO_EN_TILES
+    sub b                     ; A = ALTO - iteracion_bucle = Y actual
+    rlca                      ; A = Y * 2
+ 
+    ;;; Calculamos la direccion destino en pantalla como
+    ;;; DIR_PANT = DIRECCION(X_INICIAL, Y_INICIAL + Y*2)
+    ld bc, (DM_COORD_X)       ; B = DB_COORD_Y y C = DB_COORD_X
+    add a, b
+    ld b, a
+    ld a, b
+    and $18
+    add a, $40
+    ld h, a
+    ld a, b
+    and 7
+    rrca
+    rrca
+    rrca
+    add a, c
+    ld l, a                   ; HL = DIR_PANTALLA(X_INICIAL,Y_INICIAL+Y*2)
+ 
+    ld a, (DM_WIDTH)
+    ld b, a                   ; B = ANCHO_EN_TILES
+ 
+drawmg16_xloop:
+    push bc                   ; Nos guardamos el contador del bucle
+ 
+    ld a, (ix+0)              ; Leemos un byte del mapa
+    inc ix                    ; Apuntamos al siguiente byte del mapa
+ 
+    cp 255                    ; Bloque especial a saltar: no se dibuja
+    ;cp 0
+    jp z, drawmg16_next
+
+; Aqui voy a meter la rutina para formar el mapa de colisiones
+    cp 0
+    jp z, marcoConCeros
+
+	push AF
+    EXX     ;exchanges BC, DE, and HL with shadow registers with BC', DE', and HL'.
+    LD A, $08
+    LD (DE), a  ;JM
+    EXX
+    pop AF
+    jp sigoConElCodigoOriginal
+
+marcoConCeros:
+    push AF
+    EXX     ;exchanges BC, DE, and HL with shadow registers with BC', DE', and HL'.
+    LD A, $00
+    LD (DE), a  ;JM
+    EXX
+    pop AF
+    
+sigoConElCodigoOriginal:
+; sigue el codigo original
+    ld b, a
+    ex af, af'                ; Nos guardamos una copia del bloque en A'
+    ld a, b
+ 
+    ;;; Calcular posicion origen (array sprites) en HL como:
+    ;;;     direccion = base_sprites + (NUM_SPRITE*32)
+    ex de, hl                 ; Intercambiamos DE y HL (DE=destino)
+    ld bc, (DM_SPRITES)
+    ld l, 0
+    srl a
+    rr l
+    rra
+    rr l
+    rra
+    rr l
+    ld h, a
+    add hl, bc                ; HL = BC + HL = DM_SPRITES + (DM_NUMSPR * 32)
+    ex de, hl                 ; Intercambiamos DE y HL (DE=origen, HL=destino)   
+ 
+    push hl                   ; Guardamos el puntero a pantalla recien calculado
+    push hl
+ 
+    ;;; Impresion de los primeros 2 bloques horizontales del tile
+ 
+    ld b, 8
+drawmg16_loop1:
+ 
+    ld a, (de)                ; Bloque 1: Leemos dato del sprite
+    ld (hl), a                ; Copiamos dato a pantalla
+    inc de                    ; Incrementar puntero en sprite
+    inc l                     ; Incrementar puntero en pantalla
+    ld a, (de)                ; Bloque 2: Leemos dato del sprite
+    ld (hl), a                ; Copiamos dato a pantalla
+    inc de                    ; Incrementar puntero en sprite
+    inc h                     ; Hay que sumar 256 para ir al siguiente scanline
+    dec l                     ; pero hay que restar el inc l que hicimos.
+    djnz drawmg16_loop1
+    inc l                     ; Decrementar el ultimo incrementado en el bucle
+ 
+    ; Avanzamos HL 1 scanline (codigo de incremento de HL en 1 scanline)
+    ; desde el septimo scanline de la fila Y+1 al primero de la Y+2
+    ld a, l
+    add a, 31
+    ld l, a
+    jr c, drawmg16_nofix_abajop
+    ld a, h
+    sub 8
+    ld h, a
+drawmg16_nofix_abajop:
+ 
+    ;;; Impresion de los segundos 2 bloques horizontales:
+    ld b, 8
+drawmg16_loop2:
+    ld a, (de)                ; Bloque 1: Leemos dato del sprite
+    ld (hl), a                ; Copiamos dato a pantalla
+    inc de                    ; Incrementar puntero en sprite
+    inc l                     ; Incrementar puntero en pantalla
+    ld a, (de)                ; Bloque 2: Leemos dato del sprite
+    ld (hl), a                ; Copiamos dato a pantalla
+    inc de                    ; Incrementar puntero en sprite
+    inc h                     ; Hay que sumar 256 para ir al siguiente scanline
+    dec l                     ; pero hay que restar el inc l que hicimos.
+    djnz drawmg16_loop2
+ 
+    ;;; En este punto, los 16 scanlines del tile estan dibujados.
+ 
+    ;;;;;; Impresion de la parte de atributos del tile ;;;;;;
+ 
+    pop hl                    ; Recuperar puntero a inicio de tile
+ 
+    ;;; Calcular posicion destino en area de atributos en DE.
+    ld a, h                   ; Codigo de Get_Attr_Offset_From_Image
+    rrca
+    rrca
+    rrca
+    and 3
+    or $58
+    ld d, a
+    ld e, l                   ; DE tiene el offset del attr de HL
+ 
+    ld hl, (DM_ATTRIBS)
+    ex af, af'                ; Recuperamos el bloque del mapa desde A'
+    ld c, a
+    ld b, 0
+    add hl, bc
+    add hl, bc
+    add hl, bc
+    add hl, bc                ; HL = HL+HL=(DM_NUMSPR*4) = Origen de atributo
+ 
+    ldi
+    ldi                       ; Imprimimos la primeras fila de atributos
+ 
+    ;;; Avance diferencial a la siguiente linea de atributos
+    ld a, e                   ; A = E
+    add a, 30                 ; Sumamos A = A + 30 mas los 2 INCs de ldi.
+    ld e, a                   ; Guardamos en E (E = E+30 + 2 por ldi=E+32)
+    jr nc, drawmg16_att_noinc
+    inc d
+drawmg16_att_noinc:
+    ldi
+    ldi                       ; Imprimimos la segunda fila de atributos
+ 
+    pop hl                    ; Recuperamos el puntero al inicio
+ 
+drawmg16_next:
+    inc l                     ; Avanzamos al siguiente tile en pantalla
+    inc l                     ; horizontalmente
+    EXX
+	INC de  ;JM
+    EXX
+    ;INC IY  ;JM
+    pop bc                    ; Recuperamos el contador para el bucle
+    dec b                     ; djnz se sale de rango, hay que usar DEC+jp
+    jp nz, drawmg16_xloop
+ 
+    ;;; NUEVO: Incrementar puntero de mapa a siguiente linea
+    ld bc, ANCHO_MAPA_TILES - ANCHO_PANTALLA
+    add ix, bc
+    ;;; FIN NUEVO
+ 
+    ;;; En este punto, hemos dibujado ANCHO tiles en pantalla (1 fila)
+    pop bc
+    dec b                     ; Bucle vertical
+    jp nz, drawmg16_yloop
+ 
+    ret
+
+;-------------------------------------------------------------
+; Incrementar la variable DM_MAPX para scrollear a la derecha.
+;-------------------------------------------------------------
+MueveMapaIX:
+    ld hl, (DM_MAPX)
+ 
+    ;;; Comparacion 16 bits de HL y (ANCHO_MAPA-ANCHO_PANTALLA)
+    ld a, h
+    CP (ANCHO_MAPA_TILES-ANCHO_PANTALLA) / 256
+    ret nz
+    ld a, l
+    CP (ANCHO_MAPA_TILES-ANCHO_PANTALLA) % 256
+    ret z
+ 
+    inc hl                     ; No eran iguales, podemos incrementar.
+    ld (DM_MAPX), hl
+   
+    ret
+ 
+;-------------------------------------------------------------
+; Incrementar la variable DM_MAPY para scrollear hacia abajo.
+;-------------------------------------------------------------
+Map_Inc_Y:
+    ld hl, (DM_MAPY)
+ 
+    ;;; Comparacion 16 bits de HL y (ALTO_MAPA-ALTO_PANTALLA)
+    ld a, h
+    CP (ALTO_MAPA_TILES-ALTO_PANTALLA) / 256
+    ret nz
+    ld a, l
+    CP (ALTO_MAPA_TILES-ALTO_PANTALLA) % 256
+    ret z
+ 
+    inc hl                     ; No eran iguales, podemos incrementar.
+    ld (DM_MAPY), hl
+    ret
+ 
+;-------------------------------------------------------------
+; Decrementar la variable DM_MAPX para scrollear a la izq.
+;-------------------------------------------------------------
+Map_Dec_X:
+    ld hl, (DM_MAPX)
+    ld a, h
+    and a
+    jr nz, mapdecx_doit2        ; Verificamos que DM_MAPX no sea 0
+    ld a, l
+    and a
+    ret z
+    mapdecx_doit2:
+    dec hl
+    ld (DM_MAPX), hl           ; No es cero, podemos decrementar
+    ret
+ 
+;-------------------------------------------------------------
+; Decrementar la variable DM_MAPY para scrollear hacia arriba.
+;-------------------------------------------------------------
+Map_Dec_Y:
+    ld hl, (DM_MAPY)
+    ld a, h
+    and a
+    jr nz, mapdecy_doit        ; Verificamos que DM_MAPX no sea 0
+    ld a, l
+    and a
+    ret z
+    mapdecy_doit:
+    dec hl
+    ld (DM_MAPY), hl           ; No es cero, podemos decrementar
+    ret
+
+PrintBCD1d:
+push af
+ld      a, (hl)     ; Carga en A el número a pintar
+and     $f0         ; Se queda con las decenas
+rra
+rra
+rra
+rra                 ; Lo pone en los bits 0 a 3
+add     a, '0'      ; Le suma el carácter 0
+;rst     $10         ; Pinta el dígito
+
+ld      a, (hl)     ; Carga el A el número a pintar
+and     $0f         ; Se queda con las unidades
+add     a, '0'      ; Le suma el carácter 0
+rst     $10         ; Pinta el dígito
+pop af
+
+ret
+
+
+
+At:
+push	de	; Preserva el valor de DE
+push	hl	; Preserva el valor de HL
+call	$0a23	; Llama a la rutina de la ROM
+pop		hl	; Recupera el valor de HL
+pop		de	; Recupera el valor de DE
+ret
+
+pintarBicho:
+    ld hl, bicho_gfx
+    ld (DS_SPRITES), hl
+    ld hl, bicho_attrib
+    ld (DS_ATTRIBS), hl
+    ld a, 4
+    ld (DS_COORD_X), a
+    ld a, 4
+    ld (DS_COORD_Y), a
+    xor a
+    ld (DS_NUMSPR), a
+    call DrawSprite_16x16_LD
+    
+ret
+
+
+bicho_gfx:
+	DEFB	  0,224,  7, 16,  8,  8, 11,104
+	DEFB	 51,104, 72, 12,137,146,  8, 17
+	DEFB	 10, 80,  9,160,  4, 64,  7,192
+	DEFB	  4,128,  4,128,  2, 64,  2, 32
+
+bicho_attrib:
+	DEFB	 69,  7, 69, 69
+
+DS_SPRITES  DEFW   0
+DS_ATTRIBS  DEFW   0
+DS_COORD_X  DEFB   0
+DS_COORD_Y  DEFB   0
+DS_NUMSPR   DEFB   0
+
+
+;-------------------------------------------------------------
+; DrawSprite_16x16_LD:
+; Imprime un sprite de 16x16 pixeles con o sin atributos.
+;
+; Entrada (paso por parametros en memoria):
+; Direccion   Parametro
+; Direccion        Parametro
+; (DS_SPRITES)      Direccion de la tabla de Sprites
+; (DS_ATTRIBS)      Direccion de la tabla de Atribs  (0=no atributos)
+; (DS_COORD_X)      Coordenada X en baja resolucion
+; (DS_COORD_Y)      Coordenada Y en baja resolucion
+; (DS_NUMSPR)       Numero de sprite a dibujar (0-N)
+;-------------------------------------------------------------
+DrawSprite_16x16_LD:
+ 
+    ; Guardamos en BC la pareja (x,y) -> B=COORD_Y y C=COORD_X
+    ld bc, (DS_COORD_X) ; lo cambio
+ 
+    ;;; Calculamos las coordenadas destino de pantalla en DE:
+    ld a, b
+    and $18
+    add a, $40
+    ld d, a
+    ld a, b
+    and 7
+    rrca
+    rrca
+    rrca
+    add a, c
+    ld e, a
+ 
+    push de           ; Lo guardamos para luego, lo usaremos para
+                      ; calcular la direccion del atributo
+ 
+    ;;; Calcular posicion origen (array sprites) en HL como:
+    ;;;     direccion = base_sprites + (NUM_SPRITE*32)
+    ;;; Multiplicamos con desplazamientos, ver los comentarios.
+    ld bc, (DS_SPRITES)
+    ld a, (DS_NUMSPR)
+    ld l, 0           ; AL = DS_NUMSPR*256
+    srl a             ; Desplazamos a la derecha para dividir por dos
+    rr l              ; AL = DS_NUMSPR*128
+    rra               ; Rotamos, ya que el bit que salio de L al CF fue 0
+    rr l              ; AL = DS_NUMSPR*64
+    rra               ; Rotamos, ya que el bit que salio de L al CF fue 0
+    rr l              ; AL = DS_NUMSPR*32
+    ld h, a           ; HL = DS_NUMSPR*32
+    add hl, bc        ; HL = BC + HL = DS_SPRITES + (DS_NUMSPR * 32)
+                      ; HL contiene la direccion de inicio en el sprite
+ 
+    ex de, hl         ; Intercambiamos DE y HL (DE=origen, HL=destino)
+ 
+    ;;; Repetir 8 veces (primeros 2 bloques horizontales):
+    ld b, 8
+ 
+drawsp16x16_loop1:
+    ld a, (de)         ; Bloque 1: Leemos dato del sprite
+    ld (hl), a         ; Copiamos dato a pantalla
+    inc de             ; Incrementar puntero en sprite
+    inc l              ; Incrementar puntero en pantalla
+ 
+    ld a, (de)         ; Bloque 2: Leemos dato del sprite
+    ld (hl), a         ; Copiamos dato a pantalla
+    inc de             ; Incrementar puntero en sprite
+ 
+    inc h              ; Hay que sumar 256 para ir al siguiente scanline
+    dec l              ; pero hay que restar el inc l que hicimos.
+    djnz drawsp16x16_loop1
+ 
+    ; Avanzamos HL 1 scanline (codigo de incremento de HL en 1 scanline)
+    ; desde el septimo scanline de la fila Y+1 al primero de la Y+2
+ 
+    ;;;inc h           ; No hay que hacer inc h, lo hizo en el bucle
+    ;;;ld a, h         ; No hay que hacer esta prueba, sabemos que
+    ;;;and 7           ; no hay salto (es un cambio de bloque)
+    ;;;jr nz, drawsp16_nofix_abajop
+    ld a, l
+    add a, 32
+    ld l, a
+    jr c, drawsp16_nofix_abajop
+    ld a, h
+    sub 8
+    ld h, a
+ 
+drawsp16_nofix_abajop:
+ 
+    ;;; Repetir 8 veces (segundos 2 bloques horizontales):
+    ld b, 8
+ 
+drawsp16x16_loop2:
+    ld a, (de)         ; Bloque 1: Leemos dato del sprite
+    ld (hl), a         ; Copiamos dato a pantalla
+    inc de             ; Incrementar puntero en sprite
+    inc l              ; Incrementar puntero en pantalla
+ 
+    ld a, (de)         ; Bloque 2: Leemos dato del sprite
+    ld (hl), a         ; Copiamos dato a pantalla
+    inc de             ; Incrementar puntero en sprite
+ 
+    inc h              ; Hay que sumar 256 para ir al siguiente scanline
+    dec l              ; pero hay que restar el inc l que hicimos.
+    djnz drawsp16x16_loop2
+ 
+    ;;; En este punto, los 16 scanlines del sprite estan dibujados.
+ 
+    pop bc
+
+;;; Considerar el dibujado de los atributos (Si DS_ATTRIBS=0 -> ret)
+    ld hl, (DS_ATTRIBS)
+ 
+    xor a              ; A = 0
+    add a, h           ; A = 0 + H = H
+    ret z              ; Si H = 0, volver (no dibujar atributos)
+ 
+    ;;; Calcular posicion destino en area de atributos en DE.
+    ld a, b            ; Codigo de Get_Attr_Offset_From_Image
+    rrca               ; Obtenemos dir de atributo a partir de
+    rrca               ; dir de zona de imagen.
+    rrca               ; Nos evita volver a obtener X e Y
+    and 3              ; y hacer el calculo completo de la
+    or $58             ; direccion en zona de atributos
+    ld d, a
+    ld e, c            ; DE tiene el offset del attr de HL
+ 
+    ld a, (DS_NUMSPR)  ; Cogemos el numero de sprite a dibujar
+    ld c, a
+    ld b, 0
+    add hl, bc         ; HL = HL+DS_NUMSPR
+    add hl, bc         ; HL = HL+DS_NUMSPR*2
+    add hl, bc         ; HL = HL+DS_NUMSPR*3
+    add hl, bc         ; HL = HL+HL=(DS_NUMSPR*4) = Origen de atributo
+ 
+    ldi
+    ldi                ; Imprimimos las 2 primeras filas de atributo
+ 
+    ;;; Avance diferencial a la siguiente linea de atributos
+    ld a, e            ; A = L
+    add a, 30          ; Sumamos A = A + 30 mas los 2 INCs de ldi.
+    ld e, a            ; Guardamos en L (L = L+30 + 2 por ldi=L+32)
+    jr nc, drawsp16x16_attrab_noinc
+    inc d
+drawsp16x16_attrab_noinc:
+    ldi
+    ldi
+    
+ret
+
+PrintBCD:
+ld      a, (hl)     ; Carga en A el número a pintar
+and     $f0         ; Se queda con las decenas
+rra
+rra
+rra
+rra                 ; Lo pone en los bits 0 a 3
+add     a, '0'      ; Le suma el carácter 0
+rst     $10         ; Pinta el dígito
+
+ld      a, (hl)     ; Carga el A el número a pintar
+and     $0f         ; Se queda con las unidades
+add     a, '0'      ; Le suma el carácter 0
+rst     $10         ; Pinta el dígito
+
+ret
+
+;paja_paraqueelsiguientevayaBien:
+ ;   DEFB 255,255,255
+
+;mapa_pantalla10x10:
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0
+
+mapa_pantalla16x12:
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+Maspaja_paraqueelsiguientevayaBien:
+    DEFB 255,255,255,255
+
+;-----------------------------------------------------------------------
+;;; Nuestra pantalla de ejemplo de 48x12 bloques:
+;-----------------------------------------------------------------------
+mapa_ejemplo:
+  	DEFB 1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+	DEFB 1,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1
+    DEFB 1,0,0,0,0,0,1,0,0,1,1,1,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1
+    DEFB 1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1
+    DEFB 1,0,0,1,1,0,1,0,0,1,1,1,0,0,0,1,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,1,0,0,1,0,0,1,1,1,1,1,1,1,0,0,0,1
+    DEFB 1,0,0,1,1,0,1,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,2,2,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1
+    DEFB 1,0,0,1,1,1,1,0,0,1,2,2,0,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1
+    DEFB 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,1,1,1,1,1,1,0,0,0,1
+    DEFB 1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+    DEFB 1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+    DEFB 1,2,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,2,1,1,1,1,2,1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1
+	DEFB 1,2,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1
+    ;DEFB 1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,2,0,0,0,0,0,0,0,0,1,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,0,0,0,0,0,0,0,0,2,1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,7,7,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,7,7,7,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,5,0,0,0,0,0,0,2,3,2,3,2,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,4,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,2,6,6,5,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 1,2,2,1,2,2,0,0,0,0,2,2,2,1,2,3,2,3,4,2,3,2,0,0,0,0,0,0,0,0,0,1,1,2,1,1,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ;DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,2,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+ 
+
+
+;mapa_pantalla20x20:
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+;    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+sokoban1_gfx:
+    DEFB   0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0
+    DEFB   0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,  0,  0
+    ;DEFB 127,252,193, 86,152,  2,180,170, 173, 86,153,254,194,170,255,254
+    DEFB 195,191, 27,159, 26,  7,194,  3,  32, 49,177, 40,179,107,151,104
+    ;DEFB   0,  0,102,102, 51, 50,153,152, 204,204,102,102, 51, 50,  0,  0
+    ;DEFB 4, 41, 23,131, 87, 73,150,197, 83,247,155,223,219,154, 72, 10
+    ;DEFB 127,102,205, 76,151, 24,205, 50, 151,102,205, 76,151, 24,205, 50
+    DEFB 227,188,251,158, 26,  7,242,231,246,211,183, 40,189,127,151,123
+    DEFB 228,105,255,147, 15,219,254,215,67, 55,143,216,239,218,236,207
+    DEFB 131,102,153, 76,173, 24,181, 50, 153,102,195, 76,127, 24,  0,  0
+    DEFB 255,252,255,134,255, 50,255, 90, 255,106,255, 50,255,134,255,254
+    DEFB 255,254,255,254,255,254,255,250, 255,242,253,166,255,252,  0,  0
+    DEFB 127,252,205,134,151, 50,205,106, 151, 90,205, 50,151,134,205,254
+    DEFB 195,254,153,254,173,254,181,250, 153,242,195,166,127,252,  0,  0
+    DEFB 255,254,255,254,255,254,255,254, 255,254,255,254,191,254,255,254
+    DEFB 255,134,191, 50,255,106,191, 90, 159, 50,207,134,127,252,  0,  0
+    DEFB   0,  0,127,254, 95,250, 96,  6, 111,182,111,118, 96,230,109,214
+    DEFB 107,182,103,  6,110,246,109,246,  96,  6, 95,250,127,254,  0,  0
+    DEFB   0,  0,123,222,123,222, 96,  6,  96,  6,  0,  0, 96,  6, 96,  6
+    DEFB  96,  6, 96,  6,  0,  0, 96,  6,  96,  6,123,222,123,222,  0,  0
+ 
+sokoban1_attr:
+    ;DEFB   0,  0,  0,  0,  5,  5, 70, 70, 5, 70,  5, 70, 69, 71, 69, 71
+    ;DEFB   0,  0,  0,  0,  2,  66, 2, 2, 66, 66,  2, 2, 69, 71, 69, 71
+    DEFB   0,  0,  0,  0,  2,  65, 2, 2, 65, 65,  2, 2, 65, 65, 65, 65 ;fondos azules
+    ;DEFB   5, 69, 69, 71, 69, 69, 71, 71, 2, 65, 65, 67,  6, 70, 70, 71
+    DEFB   0,  0,  0,  0,  2,  65, 2, 2, 65, 65,  2, 2, 65, 65, 65, 65 ;fondos azules
+ 
+ #include "4ImpMap10x10.z80asm"

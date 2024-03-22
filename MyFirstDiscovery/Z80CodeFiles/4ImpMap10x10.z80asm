@@ -1,0 +1,255 @@
+﻿ImpMap10x10:
+	LD IX, (DM_MAP10x10)  
+
+    ld      bc, $0e0c
+    ;ld      bc, $180c
+    call    At
+
+    ld a, 0
+bucleImpMap10x10:
+ 
+    ; Codigo a repetir 10 veces
+       
+    LD C,(IX+0)
+    ld b,(HL)
+    LD (HL),C                 ; esto causa corrupción en el sprite
+    
+         
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+    INC IX
+    LD (HL),b
+         
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x10
+      
+    
+; segunda linea
+ld      bc, $0d0c
+    call    At
+
+    ld a, 0
+bucleImpMap10x10b:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+    ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+    INC IX
+    LD (HL),b
+    
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x10b
+          
+; tercera linea
+ld      bc, $0c0c
+    call    At
+
+    ld a, 0
+bucleImpMap10x10c:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+        ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+    LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x10c
+
+; cuarta linea
+ld      bc, $0b0c
+    call    At
+
+    ld a, 0
+bucleImpMap10x10bb:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+          ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+           LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x10bb
+
+
+
+; quinta linea
+ld      bc, $0a0c
+    call    At
+
+    ld a, 0
+bucleImpMap10x10aa:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+            ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+           LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x10aa
+              
+; sexta linea
+ld      bc, $090c
+    call    At
+
+    ld a, 0
+bucleImpMap10x109:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+           ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+    LD (HL),b
+    
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x109
+
+; septima linea
+ld      bc, $080c
+    call    At
+
+    ld a, 0
+bucleImpMap10x108:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+                ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+             LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x108
+
+; octava linea
+ld      bc, $070c
+    call    At
+
+    ld a, 0
+bucleImpMap10x107:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+              ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+            LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x107
+
+; novena linea
+ld      bc, $060c
+    call    At
+
+    ld a, 0
+bucleImpMap10x106:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+              ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+             LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x106
+
+; decima linea
+ld      bc, $050c
+    call    At
+
+    ld a, 0
+bucleImpMap10x105:
+ 
+    ; Codigo a repetir 10 veces
+ 
+    LD C,(IX+0)
+               ld b,(HL)
+	LD (HL),C
+    
+    
+	call    PrintBCD1d    
+    ld c,0
+    ;ld (ix+0),c
+
+    INC IX
+                LD (HL),b
+
+    inc a
+    cp 10
+    jr nz, bucleImpMap10x105
+
+ret

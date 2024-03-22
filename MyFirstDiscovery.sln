@@ -1,0 +1,15 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.34301.259
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F16D4249-6279-474E-8826-742E7FF7445C}") = "MyFirstDiscovery", "MyFirstDiscovery\MyFirstDiscovery.z80cdproj", "{DFBB2EBA-D84D-4933-8EE0-2C07BBB9E51E}"
+EndProject
+Global
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CF34EA3E-4DDB-4D0D-A030-7527739BEF66}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,235 @@
+﻿SCREEN  EQU $4000                   ; Location of screen
+COLOR   EQU $5800  
+
+ORG     $8000
+
+mainloop:
+ld hl, map+63
+ld bc, 0x0808
+
+maploop:
+        push hl
+        push bc
+        ld a, (hl)
+        ld l, a
+        ld h, 0
+        call drawtile
+halt
+pop bc
+pop hl
+dec hl
+dec b
+jr nz, maploop
+ld b,8
+dec c
+jr nz, maploop
+;jp mainloop
+call scroll
+.loop 100
+         halt
+.endl
+;jp #12a2
+ret
+
+
+
+drawtile:
+        ; Save these for later when we plot color
+        push hl
+        push bc
+        ; One tile is 2*16 bytes
+        add hl, hl ; *2
+        add hl, hl ; *4
+        add hl, hl ; *8
+        add hl, hl ; *16
+        add hl, hl ; *32
+        ld de, tiles
+		add hl, de
+        ld d, h  ; hl now is pointing at the start of tile x
+		ld e, l
+
+ ld a, c
+        add a, a
+        ld c, a 
+        ; next, rotate the coordinate right three bits (to get to Y3, Y4, Y5 in L)
+        rrca
+        rrca
+        rrca        
+        ; AND any additional bits off
+        and 0xe0
+        ; Add in the x offset twice for 16 pixel step
+        add a, b
+        add a, b        
+        ld l, a  ; coordinate bottom byte done
+        ; next we do the same for Y6 and Y7; no need to shift because we're in the
+        ; right place.
+        ld a, c
+        and 0x18 ; AND extra bits off, and h is done.
+        ld h, a
+        ld bc, SCREEN
+        add hl, bc  
+
+ld bc, 255
+.loop 8
+            ld a, (de)    ; Read pixels from data
+            ld (hl), a    ; Write to screen
+            inc de        ; Increment de and hl..
+            inc hl
+            ld a, (de)    ; And repeat
+            ld (hl), a
+            inc de
+            add hl, bc    ; Add in bc to move to the next line in screen (and one byte back)
+.endl
+        ld bc, 65536 - 256 * 8 + 32 ; Move to the next block of 8 pixels
+        add hl, bc
+        ld bc, 255        ; And repeat the above process
+ .loop 8
+            ld a, (de)
+            ld (hl), a
+            inc de
+            inc hl
+            ld a, (de)
+            ld (hl), a
+            inc de
+            add hl, bc            
+.endl
+
+; Bitmap done, color to do
+        pop bc
+        ld l, c   ; y coordinate
+        ld h, 0
+        ; we need to multiply y by 64; 32 colors per scanline and we do 16x16 tiles
+        add hl, hl ; x2
+        add hl, hl ; x4
+        add hl, hl ; x8
+        add hl, hl ; x16
+        add hl, hl ; x32
+        add hl, hl ; x64
+        ld c, b
+        ld b, 0
+        add hl, bc ; x offset
+        add hl, bc ; x offset x2, for 16x16 tiles
+        ld bc, COLOR
+        add hl, bc
+        ld b, h ; bc now has color table offset
+		ld c, l ; bc now has color table offset
+		
+	pop hl ; tile index
+        ; One tile is 4 bytes of color
+        add hl, hl ; x2
+        add hl, hl ; x4
+        ld de, tilecolors
+		add hl, de  ; hl now points at tile color
+        
+        ld d, h  ; de now points at tile
+		ld e, l  ; de now points at tile
+        ld h, b  ; hl now points at screen
+		ld l, c  ; hl now points at screen
+        ld bc, 31  ; scanline - 1
+
+		
+ld a, (de)      ; read color
+        ld (hl), a      ; write color
+        inc de          ; next color
+        inc hl          ; next pixel
+        ld a, (de)
+        ld (hl), a
+        inc de
+        add hl, bc      ; next row - 1 pixel
+        ld a, (de)
+        ld (hl), a
+        inc de
+        inc hl
+        ld a, (de)
+        ld (hl), a    
+        ret   
+        
+scroll:
+ld hl, 22527
+ld d, 0
+ld a, 150
+nextLine: ld b,31
+nextByte: dec hl
+ld e, (hl)
+inc hl
+ld (hl),e
+dec hl
+djnz nextByte
+ld (hl),d
+dec hl
+dec a
+jr nz, nextLine
+halt
+ret
+
+
+
+
+
+
+
+map:    db 2,2,6,3,5,2,2,2
+        db 2,5,6,3,2,2,6,2
+        db 2,2,2,3,2,6,2,2
+        db 3,2,3,3,2,2,2,6
+        db 2,2,2,6,2,2,2,2
+        db 2,2,0,2,2,2,6,2
+        db 0,1,0,2,6,2,2,7
+        db 2,2,2,2,2,2,2,2
+		
+tiles:
+        db 0,0,0,0,0,0,0,0
+		db 0,0,0,0,0,0,0,0
+		db 0,0,0,0,0,0,0,0
+		db 0,0,0,0,0,0,0,0
+		db 0,0,0,0,0,0,0,0
+        db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd       ; $93 Arriba/Derecha
+		db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd
+		db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd
+		db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd
+		db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd
+		db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd
+		db $dd, $dd, $dd, $dd, $dd, $dd, $dd, $dd
+		db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derecha
+        db $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derechadb $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derecha
+        db $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derechadb $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derecha
+        db $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derechadb $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derecha
+        db $03, $0f, $1c, $30, $60, $60, $c0, $c0       ; $92 Arriba/Izquierda
+        db $c0, $f0, $38, $0c, $06, $06, $03, $03       ; $93 Arriba/Derecha
+        db $c0, $c0, $60, $60, $30, $1c, $0f, $03       ; $94 Abajo/Izquierda
+        db $03, $03, $06, $06, $0c, $38, $f0, $c0       ; $95 Abajo/Derecha
+
+		
+tilecolors:
+        db 0x00, 0x00, 0x00, 0x00 ; empty
+        db 0x05, 0x05, 0x04, 0x04 ; player
+        db 0x10, 0x10, 0x10, 0x10 ; ground
+        db 0x50, 0x50, 0x50, 0x50 ; bricks
+        db 0x04, 0x04, 0x04, 0x04 ; goo
+        db 0x45, 0x05, 0x05, 0x45 ; gem
+        db 0x07, 0x07, 0x07, 0x07 ; stone
+        db 0x04, 0x04, 0x04, 0x04 ; exit (closed)
+        db 0x44, 0x44, 0x44, 0x44 ; exit (open)
+		
+
+
+END
