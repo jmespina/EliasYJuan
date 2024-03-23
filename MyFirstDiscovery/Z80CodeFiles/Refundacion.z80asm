@@ -320,7 +320,7 @@ RET
 
 SHIP_TOP_L:	EQU $01
 ;SHIP_TOP_R: EQU $10
-SHIP_TOP_R: EQU $0D
+SHIP_TOP_R: EQU $1B
 
 ;-------------------------------------------------------------
 ; LEER_TECLADO: Lee el estado de O, P, Q, A, y devuelve
