@@ -175,6 +175,7 @@ moverBichoIzq:
     ld      a, SHIP_TOP_L + $01 
     sub     c ;    
     jp z, mueveMapaDX
+    ret z
 
     dec c
     ld a,c
@@ -317,7 +318,7 @@ parDerecha:
     jp z, moverBichoDerecha
 RET
 
-SHIP_TOP_L:	EQU $02
+SHIP_TOP_L:	EQU $01
 ;SHIP_TOP_R: EQU $10
 SHIP_TOP_R: EQU $0D
 
