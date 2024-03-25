@@ -11,20 +11,17 @@
     <ProjConf Include="Spectrum.projconf" />
     <Rom Include="Rom\ZxSpectrum48.rom" />
     <DisassAnn Include="Rom\ZxSpectrum48.disann" />
-    <Z80Asm Include="Z80CodeFiles\Code.z80asm" />
-    <Z80Asm Include="Z80CodeFiles\4ImpMap10x10.z80asm" />
-    <Z80Asm Include="Z80CodeFiles\Refundacion.z80asm" />
-    <Z80Asm Include="Z80CodeFiles\nave.z80asm" />
-    <Z80Asm Include="Z80CodeFiles\mapa1.z80asm" />
-    <Z80Asm Include="Z80CodeFiles\corto.z80asm" />
-    <Z80Asm Include="Z80CodeFiles\Sprite.z80asm" />
+    <Z80Asm Include="Z80CodeFiles\rutinasPrevias.z80asm" />
+    <Z80Asm Include="Z80CodeFiles\graficos.z80asm" />
+    <Z80Asm Include="Z80CodeFiles\mapas.z80asm" />
+    <Z80Asm Include="Z80CodeFiles\imprimirMapaColisiones.z80asm" />
+    <Z80Asm Include="Z80CodeFiles\principal.z80asm" />
     <ZxBasic Include="ZxBasicFiles\Program.zxbas" />
     <Z80Test Include="Z80UnitTests\UnitTest.z80test" />
     <Tzx Include="TapeFiles\Code.tzx" />
     <Tzx Include="TapeFiles\Welcome.tzx" />
   </ItemGroup>
   <ItemGroup>
-    <Tap Include="TapeFiles\corto.tap" />
     <Tap Include="TapeFiles\Refundacion.tap" />
   </ItemGroup>
   <Import Project="$(CustomProjectExtensionsPath)Spect.Net.CodeDiscover.targets" />

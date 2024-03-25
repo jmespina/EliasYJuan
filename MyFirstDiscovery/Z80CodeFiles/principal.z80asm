@@ -1,0 +1,386 @@
+﻿; Put your Z80 assembly code into code files
+Start:
+; Ejemplo impresion mapa de 16x16 desde array global
+ORG     35000
+
+    ld hl, sokoban1_gfx
+    ld (DM_SPRITES), hl
+    ld hl, sokoban1_attr
+    ld (DM_ATTRIBS), hl
+    ld hl, mapa_nivel01
+    ld (DM_MAP), hl
+	
+	LD HL, mapa_pantalla16x12 ;JM
+    ;LD HL, mapa_pantalla20x20 ;JM
+    LD (DM_MAP10x10), HL  
+    ld a, ANCHO_PANTALLA
+    ld (DM_WIDTH), a
+    ld a, ALTO_PANTALLA
+    ld (DM_HEIGHT), a
+    xor a
+    ld (DM_COORD_X), a
+    ld (DM_COORD_Y), a
+    ld (DM_MAPX), a            ; Establecemos MaPX, MaPY iniciales = 0
+    ld (DM_MAPY), a
+
+CALL pintarBicho ; inicializamos
+ 
+redraw:
+    call DrawMap_16x16_Map     ; Imprimir pantalla de mapa
+    call DrawSprite_16x16_LD ; pintamos el bicho moviendose
+    ;call ImpMap10x10 ; Imprimimos el mapa 10x10 (y lo borramos)
+    halt
+    halt
+    halt
+    
+bucle:
+    call LEER_TECLADO          ; Leemos el estado de O, P, Q, A
+    
+    bit 0, a                   ; Modificamos MAPX y MAPY segun OPQA
+    jr z, nopulsada_q
+    ;call Map_Dec_Y
+    CALL podemosIrArriba
+    jr redraw
+nopulsada_q:
+    bit 1, a
+    jr z, nopulsada_a
+    CALL podemosIrAbajo
+    ;call Map_Inc_Y
+    jr redraw
+nopulsada_a:
+    bit 2, a
+    jr z, nopulsada_p
+	CALL podemosIrDer ; mi rutina
+    ;call Map_Inc_X
+    jr redraw
+nopulsada_p:
+    bit 3, a
+    jr z, nopulsada_o
+    CALL podemosIrIzq
+    ;call Map_Dec_X
+    jr redraw
+nopulsada_o:
+    jr bucle
+ 
+loop:
+  jr loop
+
+podemosIrArriba:
+    ld HL, (DS_COORD_Y)
+    DEC L
+    SRL L
+    LD DE, ANCHO_PANTALLA
+
+    CALL MULT_HL_POR_DE
+    LD BC, (DS_COORD_X)
+    LD B,0
+    SRL C ;en C tengo la posición del bicho. Como la posicion del bicho va en bloques de 8x8 y el mapa de colisiones va de 16x16, la tengo que dividir por dos
+    jp nc, parArriba ;segun el bit de carry salto o no
+
+    ;consideramos que C era impar
+    INC C ;si llega aqui es impar, deberia mirar a izq y derecha
+
+    ADD HL,BC  ;si salta continua la ejecución normal del programa
+    EX DE,HL
+    LD IX,(DM_MAP10x10)
+    ADD IX,DE
+
+    LD A,(IX+0)
+    EXX
+    LD C,A
+    CP 0
+    EXX
+    jp z, comprobarArribaIzq
+RET
+
+comprobarArribaIzq:
+    dec C
+parArriba: ;si C era par no hacemos nada
+    ld HL,(DS_COORD_Y)
+    DEC HL
+    SRL L
+    LD DE,ANCHO_PANTALLA
+
+    CALL MULT_HL_POR_DE
+    ADD HL,BC
+    EX DE,HL
+    LD IX,(DM_MAP10x10)
+    ADD IX,DE
+
+    LD A,(IX+0)
+    LD C,A
+    CP 0
+    jp z, moverBichoArriba
+
+RET
+
+moverBichoArriba:
+    ld		a, (DS_COORD_Y)
+    ld      c,a
+    cp 0
+    ret z
+	dec c ;
+    ld      a,c
+    ld		(DS_COORD_Y), a
+RET
+
+podemosIrIzq:
+    ld HL, (DS_COORD_Y)
+    SRL L
+    jp nc, parIzquierda   ; si es par, funciona bien
+                        ; ahora es impar y debe mirar abajo
+    INC L    
+    ld DE, ANCHO_PANTALLA
+    CALL MULT_HL_POR_DE                                                   
+    
+    LD BC, (DS_COORD_X)
+    LD B,0
+    DEC C
+    SRL C
+    ADD HL,BC
+    EX DE,HL
+    LD IX, (DM_MAP10x10)
+    ADD IX,DE
+    LD A, (IX+0)
+    LD C,A
+    CP 0
+    ret nz
+
+parIzquierda:
+    ld hl, (DS_COORD_Y)  ; repetimos el inicio de la rutina por si los valores se han perdido
+    SRL L   ; ahora si es impar, mira arriba
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    DEC c ;porque vamos a ver que hay a la izq
+    SRL C
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    jp z, moverBichoIzq  
+RET
+
+moverBichoIzq:
+    ld		a, (DS_COORD_X)
+    ld      c,a
+
+    ld      a, SHIP_TOP_L + $01 
+    sub     c ;    
+    jp z, mueveMapaDX
+    ret z
+
+    dec c
+    ld a,c
+    ld		(DS_COORD_X),a
+RET
+
+;-------------------------------------------------------------
+; Incrementar la variable DM_MAPX para scrollear a la derecha.
+;-------------------------------------------------------------
+MueveMapaDX:
+    ld hl, (DM_MAPX)
+    ld a, h
+    and a
+    jr nz, mapdecx_doit        ; Verificamos que DM_MAPX no sea 0
+    ld a, l
+    and a
+    ret z
+    mapdecx_doit:
+    dec hl
+    ld (DM_MAPX), hl           ; No es cero, podemos decrementar
+    
+RET
+
+podemosIrAbajo:
+	; vamos a implementar comprobacion antes de ir abajo
+	ld hl, (DS_COORD_Y)
+    SRL l
+    INC hl
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    SRL c ; dividimos por 2
+    jp nc, parAbajo ;segun el bit de carry salto o no
+
+    INC C ;si llega aqui es impar, deberia mirar a izq y derecha
+            ; con el inc mira a la derecha y falla
+            ; asi que voy a duplicar el codigo y luego luego mira a la izquierda
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    
+    ld a, (IX+0)
+    exx
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    exx
+    jp z, comprobarAbajoIzq
+    RET
+
+comprobarAbajoIzq:
+    dec c
+parAbajo:    
+	ld hl, (DS_COORD_Y)
+    SRL l
+    INC hl
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    jp z, moverBichoAbajo
+ret
+
+moverBichoAbajo:
+    ;CALL Map_Inc_Y
+    ld		a, (DS_COORD_Y)
+    ld      c,a
+	inc c ;
+    ld      a,c
+    ld		(DS_COORD_Y), a
+ret
+
+
+moverBichoDerecha:
+    
+    ld		a, (DS_COORD_X)
+    ld      c,a
+
+    ld      a, SHIP_TOP_R + $01 
+    sub     c ;    
+    jp z, MueveMapaIX
+   
+    inc c ;
+    ld      a,c
+    ld		(DS_COORD_X), a
+    
+RET 
+
+podemosIrDer:                  
+
+    ld hl, (DS_COORD_Y)
+    SRL L   ; ahora si es impar, mira arriba
+    jp nc, parDerecha   ; si es par, funciona bien
+                        ; ahora es impar y debe mirar abajo
+    INC L
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    INC c ;porque vamos a ver que hay a la derecha
+    INC C
+    SRL C
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    ret nz
+
+parDerecha:
+    ld hl, (DS_COORD_Y)  ; repetimos el inicio de la rutina por si los valores se han perdido
+    SRL L   ; ahora si es impar, mira arriba
+    ld de, ANCHO_PANTALLA
+    
+    call MULT_HL_POR_DE       ; HL = (ANCHO_MAPA * MAPA_Y)
+    ld bc, (DS_COORD_X)
+    ld b,0  ; ponemos b a 0 porque sino el calculo se sale de madre.
+    INC c ;porque vamos a ver que hay a la derecha
+    INC C
+    SRL C
+    add hl, bc                ; HL = MAPA_X + (ANCHO_MAPA * MAPA_Y)
+    ex de, hl
+    LD IX, (DM_MAP10x10)   
+    add ix, de                ; IX = Inicio_Mapa + HL
+    ld a, (IX+0)
+    ld c,a
+    cp 0               ; comparamos con 0, si es 0 se puede mover.
+    jp z, moverBichoDerecha
+RET
+
+SHIP_TOP_L:	EQU $01
+SHIP_TOP_R: EQU $11     ;Con un valor par puede que se coma bloques
+
+
+ 
+;-------------------------------------------------------------
+DM_SPRITES  DEFW   0
+DM_ATTRIBS  DEFW   0
+DM_MAP      DEFW   0
+DM_MAP10x10 DEFW   0 ;JM
+DM_COORD_X  DEFB   0
+DM_COORD_Y  DEFB   0
+DM_WIDTH    DEFB   0
+DM_HEIGHT   DEFB   0
+DM_MAPX     DEFW   0
+DM_MAPY     DEFW   0
+ 
+;-------------------------------------------------------------
+; Algunos valores hardcodeados para el ejemplo, en la rutina
+; final se puede utilizar DM_WIDTH y DM_HEIGHT.
+;-------------------------------------------------------------
+;ANCHO_MAPA_TILES       EQU   64
+;ALTO_MAPA_TILES        EQU   12
+ANCHO_MAPA_TILES       EQU   48
+ALTO_MAPA_TILES        EQU   12
+ANCHO_PANTALLA         EQU   16
+ALTO_PANTALLA          EQU   12
+
+ 
+;;; Rutina de la ROM del Spectrum, en otros sistemas
+;;; sustituir por una rutina especifica de multiplicacion
+MULT_HL_POR_DE         EQU   $30a9
+ 
+
+
+pintarBicho:
+    ld hl, bicho_gfx
+    ld (DS_SPRITES), hl
+    ld hl, bicho_attrib
+    ld (DS_ATTRIBS), hl
+    ld a, 4
+    ld (DS_COORD_X), a
+    ld a, 4
+    ld (DS_COORD_Y), a
+    xor a
+    ld (DS_NUMSPR), a
+    call DrawSprite_16x16_LD
+ret
+
+
+
+
+DS_SPRITES  DEFW   0
+DS_ATTRIBS  DEFW   0
+DS_COORD_X  DEFB   0
+DS_COORD_Y  DEFB   0
+DS_NUMSPR   DEFB   0
+
+
+
+
+
+
+ 
+ #include "imprimirMapaColisiones.z80asm"
+ #include "mapas.z80asm"
+ #include "graficos.z80asm"
+#include "rutinasPrevias.z80asm"
