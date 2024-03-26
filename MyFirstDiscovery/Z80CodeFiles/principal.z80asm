@@ -1,4 +1,6 @@
-﻿; Put your Z80 assembly code into code files
+﻿;
+
+; Put your Z80 assembly code into code files
 Start:
 ; Ejemplo impresion mapa de 16x16 desde array global
 ORG     35000
