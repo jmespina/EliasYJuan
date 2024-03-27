@@ -22,6 +22,7 @@
     <Tzx Include="TapeFiles\Welcome.tzx" />
   </ItemGroup>
   <ItemGroup>
+    <Tap Include="TapeFiles\principal.tap" />
     <Tap Include="TapeFiles\Refundacion.tap" />
   </ItemGroup>
   <Import Project="$(CustomProjectExtensionsPath)Spect.Net.CodeDiscover.targets" />
