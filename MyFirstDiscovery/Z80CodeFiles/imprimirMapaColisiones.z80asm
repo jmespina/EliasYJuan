@@ -1,4 +1,6 @@
-﻿; Rutinas para el desarrollo del juego, no estaran en versión final
+﻿;-------------------------------------------------------------
+; Rutinas para facilitar el desarrollo del juego, no estaran en versión final
+;-------------------------------------------------------------
 
 PrintBCD1d:
 push af

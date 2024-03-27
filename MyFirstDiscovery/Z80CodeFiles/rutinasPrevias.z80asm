@@ -1,4 +1,12 @@
-﻿; Rutinas de https://wiki.speccy.org/cursos/ensamblador/teclado
+﻿;-------------------------------------------------------------
+; Este es el archivo adonde voy a poner todas las rutinas creadas por otras personas.
+; Antes de una rutina, viene de donde la he sacado.
+; Hay algunos cambios menores que documentare.
+;-------------------------------------------------------------
+
+
+
+; Rutinas de https://wiki.speccy.org/cursos/ensamblador/teclado
 
 
 ;-------------------------------------------------------------

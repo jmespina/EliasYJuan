@@ -1,8 +1,10 @@
-﻿;
+﻿;-------------------------------------------------------------
+; Este es el archivo principal de código, antes se encuentra la rutina principal y adonde empieza la ejecución del juego.
+; No todo el codigo de este archivo es original mio, pero mi intención es mover todo el codigo ajeno a "rutinasPrevias.z80asm".
+;-------------------------------------------------------------
 
-; Put your Z80 assembly code into code files
+; Put your Z80 assembly code into code files <- Comentario creado con el SpectNetIde que indica adonde comienza todo.
 Start:
-; Ejemplo impresion mapa de 16x16 desde array global
 ORG     35000
 
     ld hl, sokoban1_gfx
@@ -13,7 +15,6 @@ ORG     35000
     ld (DM_MAP), hl
 	
 	LD HL, mapa_pantalla16x12 ;JM
-    ;LD HL, mapa_pantalla20x20 ;JM
     LD (DM_MAP10x10), HL  
     ld a, ANCHO_PANTALLA
     ld (DM_WIDTH), a
