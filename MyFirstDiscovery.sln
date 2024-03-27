@@ -5,6 +5,11 @@ VisualStudioVersion = 16.0.34301.259
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F16D4249-6279-474E-8826-742E7FF7445C}") = "MyFirstDiscovery", "MyFirstDiscovery\MyFirstDiscovery.z80cdproj", "{DFBB2EBA-D84D-4933-8EE0-2C07BBB9E51E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F74726FB-39F7-499A-893E-531336981EBC}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

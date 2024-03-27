@@ -374,3 +374,4 @@ Z80CodeFiles/nave*.*
 Z80CodeFiles/rutina*.*
 Z80UnitTests/
 ZxBasicFiles/
+.SpectNetIde/VmStates/
