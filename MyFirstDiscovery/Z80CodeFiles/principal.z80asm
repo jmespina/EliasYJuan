@@ -6,7 +6,7 @@
 ; Put your Z80 assembly code into code files <- Comentario creado con el SpectNetIde que indica adonde comienza todo.
 Start:
 ORG     35000
-
+    ;CALL meta
     ld hl, sokoban1_gfx
     ld (DM_SPRITES), hl
     ld hl, sokoban1_attr
@@ -297,6 +297,8 @@ podemosIrDer:
     ld c,a
     cp 0               ; comparamos con 0, si es 0 se puede mover.
     ret nz
+    cp 9 ; JM comparamos con 9, si es 9 es la Meta
+    jp z, meta
 
 parDerecha:
     ld hl, (DS_COORD_Y)  ; repetimos el inicio de la rutina por si los valores se han perdido
@@ -315,6 +317,10 @@ parDerecha:
     add ix, de                ; IX = Inicio_Mapa + HL
     ld a, (IX+0)
     ld c,a
+
+    cp 9 ; JM comparamos con 9, si es 9 es la Meta
+    jp z, meta
+
     cp 0               ; comparamos con 0, si es 0 se puede mover.
     jp z, moverBichoDerecha
 RET
@@ -383,7 +389,8 @@ DS_NUMSPR   DEFB   0
 
 
  
- #include "imprimirMapaColisiones.z80asm"
- #include "mapas.z80asm"
- #include "graficos.z80asm"
+#include "imprimirMapaColisiones.z80asm"
+#include "mapas.z80asm"
+#include "graficos.z80asm"
 #include "rutinasPrevias.z80asm"
+#include "sprite48x32.z80asm"

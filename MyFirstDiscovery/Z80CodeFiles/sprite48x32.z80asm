@@ -1,0 +1,256 @@
+﻿; Code file
+
+
+meta:
+    
+    ld hl, monster_truck_METAM
+    ld (DS_SPRITESM), hl
+    ld hl, monster_truck_META_attribM
+    ld (DS_ATTRIBSM), hl
+    ld a, 17
+    ld (DS_COORD_XM), a
+    ld a, 10
+    ld (DS_COORD_YM), a
+    ld a, 6
+    ld (DS_WIDTHM), a
+    ld a, 4
+    ld (DS_HEIGHTM), a
+    xor a
+    ld (DS_NUMSPRM), a
+ 
+    call DrawSprite_MxN_LD
+loopM:
+    jp loopM
+    ret
+ 
+; Variables que usaremos como parámetros
+DS_SPRITESM  DEFW   0
+DS_ATTRIBSM  DEFW   0
+DS_COORD_XM  DEFB   0
+DS_COORD_YM  DEFB   0
+DS_NUMSPRM   DEFB   0
+DS_WIDTHM    DEFB   0
+DS_HEIGHTM   DEFB   0
+
+;-------------------------------------------------------------
+; DrawSprite_MxN_LD:
+; Imprime un sprite de MxN pixeles con o sin atributos.
+; Maximo, 16x15 / 15x16 bloques de ancho x alto caracteres.
+;
+; Entrada (paso por parametros en memoria):
+; Direccion   Parametro
+; Direccion        Parametro
+; (DS_SPRITES)      Direccion de la tabla de Sprites
+; (DS_ATTRIBS)      Direccion de la tabla de Atribs  (0=no atributos)
+; (DS_COORD_X)      Coordenada X en baja resolucion
+; (DS_COORD_Y)      Coordenada Y en baja resolucion
+; (DS_NUMSPR)       Numero de sprite a dibujar (0-N)
+; (DS_WIDTH)        Ancho del sprite
+; (DS_HEIGHT)       Alto del sprite
+;-------------------------------------------------------------
+DrawSprite_MxN_LD:
+ 
+    ;;; Calcular posicion origen (array sprites) en HL como:
+    ;;;     direccion = base_sprites + (NUM_SPRITE*ANCHO*ALTO)
+ 
+    ;;;; Multiplicamos ancho por alto (en bloques)
+    ld a, (DS_WIDTHM)
+    ld c, a
+    ld a, (DS_HEIGHTM)
+    rlca               ; Multiplicamos por 8, necesitamos
+    rlca               ; la altura en pixeles (FILAS*8)
+    rlca               ; Y la guardamos porque la necesitaremos:
+    ld (drawsp_height), a
+ 
+    ;;; Multiplicamos Ancho_bloques * Alto_pixeles:
+    ld b, a
+    xor a              ; A = 0
+drawsp_mul1:
+    add a, c           ; A = A + C   (B veces)  = B*C
+    djnz drawsp_mul1   ; B veces -> A = A*C = Ancho * Alto
+                        ; Ahora A = Ancho*Alto (maximo 255!!!)
+ 
+    ;;; Multiplicamos DS_NUMSPR por (Ancho_bloques*Alto_pixeles)
+    ld b, a            ; Repetimos Ancho * Alto veces
+    ld hl, 0
+    ld d, h            ; HL = 0
+    ld a, (DS_NUMSPRM)
+    ld e, a            ; DE = DS_NUMSPR
+drawsp_mul2:
+    add hl, de         ; HL = HL+DS_NUMSPR
+    djnz drawsp_mul2   ; Sumamos HL+DE B veces = DS_NUMSPR*B
+ 
+                        ; guardamos el valor de ancho*alto_pixeles*NUMSPR
+    ld (drawsp_width_by_height), hl
+ 
+    ;;; Calculamos direccion origen copia en el sprite
+    ld bc, (DS_SPRITESM)
+    add hl, bc         ; HL = BC + HL = DS_SPRITES + (DS_NUMSPR*ANCHO*ALTO)
+                       ; HL contiene la direccion de inicio en el sprite
+ 
+    ;;; Calculamos las coordenadas destino de pantalla en DE:
+ 
+    ld bc, (DS_COORD_XM)     ; B = Y,  C = X
+    ld a, b
+    and $18
+    add a, $40
+    ld d, a
+    ld a, b
+    and 7
+    rrca
+    rrca
+    rrca
+    add a, c
+    ld e, a
+    push de            ; Lo guardamos para luego, lo usaremos para
+                       ; calcular la direccion del atributo
+    ex de, hl          ; Intercambiamos DE y HL (DE=origen, HL=destino)
+ 
+ 
+    ;;; Bucle de impresión vertical
+                        ; Recogemos de nuevo la altura en pixeles
+    ld a, (drawsp_height)
+    ld b, a            ; Contador del bucle exterior del bucle
+ 
+drawsp_yloop:
+    ld c, b            ; Nos guardamos el contador
+    
+    ;;; Bucle de impresion horizontal
+    ld a, (DS_WIDTHM)
+    ld b, a
+ 
+    push hl            ; Guardamos en pila inicio de scanline
+                        ; para poder volver a el luego
+drawsp_xloop:
+    ld a, (de)         ; Leemos dato del sprite
+    ld (hl), a         ; Copiamos dato a pantalla
+    inc de             ; Incrementar puntero en sprite
+    inc l              ; Incrementar puntero en pantalla
+    djnz drawsp_xloop
+    pop hl             ; Recuperamos de pila inicio de scanline
+ 
+    ;;; Avanzamos al siguiente scanline de pantalla
+    inc h
+    ld a, h
+    and 7
+    jr nz, drawspNM_nofix
+    ld a, l
+    add a, 32
+    ld l, a
+    jr c, drawspNM_nofix
+    ld a, h
+    sub 8
+    ld h, a
+drawspNM_nofix:
+ 
+    ld b, c
+    djnz drawsp_yloop  ; Repetimos "alto_en_pixeles" veces
+ 
+    ;;; Aqui hemos dibujado todo el sprite, vamos a los attributos
+ 
+    pop bc             ; Recuperamos el offset del primer scanline
+ 
+    ;;; Considerar el dibujado de atributos (Si DS_ATTRIBS=0 -> ret)
+    ld  a,[DS_ATTRIBSM+1]     ; para obtener la parte alta de la direccion
+    or  a                    ; para comprobar si es 0
+    ret z                    ; Si H = 0, volver (no dibujar atributos)
+ 
+    ;;; Calcular posicion destino en area de atributos en DE.
+    ld a, b            ; Codigo de Get_Attr_Offset_From_Image
+    rrca               ; Obtenemos dir de atributo a partir de
+    rrca               ; dir de zona de imagen.
+    rrca               ; Nos evita volver a obtener X e Y
+    and 3              ; y hacer el calculo completo de la
+    or $58             ; direccion en zona de atributos
+    ld d, a
+    ld e, c            ; DE tiene el offset del attr de HL
+    push de            ; Guardamos una copia
+ 
+    ; Recuperamos el valor de ancho_caracteres * alto_en_pixeles * NUMSPR
+    ; para ahorrarnos repetir otra vez dos multiplicaciones:
+    ld hl, (drawsp_width_by_height)
+ 
+    ;;; HL = ANCHO_BLOQUES*ALTO_PIXELES*NUMSPR
+    ;;; El Alto lo necesitamos en BLOQUES, no en píxeles-> dividir /8
+    srl h     ; Desplazamos H a la derecha
+    rr l      ; Rotamos L a la derecha introduciendo CF
+    srl h     ;
+    rr l      ;
+    srl h     ;
+    rr l      ; Resultado : HL = HL >> 3 = HL / 8
+ 
+    ;;;; HL = ANCHO_BLOQUES*ALTO_BLOQUES*NUMSPR
+    ld c, l
+    ld b, h
+    ld hl, (DS_ATTRIBSM)
+    add hl, bc         ; HL = Base_Atributos + (DS_NUMSPR*ALTO*ANCHO)
+ 
+    pop de             ; Recuperamos direccion destino
+ 
+    ld a, (DS_HEIGHTM)
+    ld b, a
+ 
+    ;;; Bucle impresion vertical de atributos
+drawsp_attyloop:
+    ld c, b
+ 
+    push de            ; Guardamos inicio de linea de atributos
+    ld a, (DS_WIDTHM)
+    ld b, a
+ 
+    ;;; Bucle impresion horizontal de atributos
+drawsp_attxloop:
+    ld a, (hl)         ; Leer atributo del sprite
+    inc hl
+    ld (de), a         ; Escribir atributo
+    inc e
+    djnz  drawsp_attxloop
+ 
+    pop de             ; Recuperamos inicio de linea de atributos
+ 
+    ;;; Avance diferencial a la siguiente linea de atributos
+    ld a, e
+    add a, 32
+    ld e, a
+    jr nc, drawsp_attrab_noinc
+    inc d
+drawsp_attrab_noinc:
+ 
+    ld b, c
+    djnz drawsp_attyloop
+ 
+    ret
+ 
+drawsp_height          DB 0
+drawsp_width_by_height DW 0
+
+monster_truck_METAM:
+	DEFB	  0,  7,130,  0,  0,  0,  4, 56
+	DEFB	 68,124,  0,  0,  2, 64, 40,255
+	DEFB	  0,  0,  2, 77,176,193,128,  0
+	DEFB	  1,141,160,192,192,  0,  0, 64
+	DEFB	 32,192,224,  0,  0, 70, 64,192
+	DEFB	241,240,  0, 64, 64,255,249,240
+	DEFB	127,255,255,255,255,248,127,255
+	DEFB	255,195,255,248,127,255,255,223
+	DEFB	255,254,127,255,255,255,255,254
+	DEFB	127,255,255,255,255,255,127,255
+	DEFB	255,255,255,255,255,255,255,255
+	DEFB	255,255,248, 65,255,255,248,143
+	DEFB	112, 64,255,255,240,131,  0, 64
+	DEFB	 16,  8,  0,128,  0, 64,  8, 16
+	DEFB	  0,192,  0, 64, 15,224,  0, 64
+	DEFB	  0, 64,120, 62,  0, 64,  0, 65
+	DEFB	192,  3,192, 64,  0,255,  0,  0
+	DEFB	120,240,  3,156,  0,  0, 15,156
+	DEFB	  6,  6,  0,  0,  6,  6,  4,102
+	DEFB	  0,  0,  4,102, 12,147,  0,  0
+	DEFB	 12,147, 12,147,  0,  0, 12,147
+	DEFB	  4,102,  0,  0,  4,102,  6,  6
+	DEFB	  0,  0,  6,  6,  3,156,  0,  0
+	DEFB	  3,156,  0,240,  0,  0,  0,240
+	
+monster_truck_META_attribM:
+	DEFB	 69, 69, 71,  1,  1,  1,  1,  1
+	DEFB	  1,  1,  1,  1,  1,  1,  1,  1
+	DEFB	  1,  1,  1,  1,  1,  1,  1,  1

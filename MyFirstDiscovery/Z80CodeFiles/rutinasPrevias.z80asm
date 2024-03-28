@@ -132,9 +132,22 @@ drawmg16_xloop:
     cp 0
     jp z, marcoConCeros
 
+; Voy a meter aqui el codigo de la META
+    cp 8
+    jp z, marcoMeta
+
 	push AF
     EXX     ;exchanges BC, DE, and HL with shadow registers with BC', DE', and HL'.
     LD A, $08
+    LD (DE), a  ;JM
+    EXX
+    pop AF
+    jp sigoConElCodigoOriginal
+
+marcoMeta:
+    push AF
+    EXX     ;exchanges BC, DE, and HL with shadow registers with BC', DE', and HL'.
+    LD A, $09 ;Voy a marcar la Meta con el codigo 9
     LD (DE), a  ;JM
     EXX
     pop AF

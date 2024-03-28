@@ -11,6 +11,7 @@
     <ProjConf Include="Spectrum.projconf" />
     <Rom Include="Rom\ZxSpectrum48.rom" />
     <DisassAnn Include="Rom\ZxSpectrum48.disann" />
+    <Z80Asm Include="Z80CodeFiles\sprite48x32.z80asm" />
     <Z80Asm Include="Z80CodeFiles\rutinasPrevias.z80asm" />
     <Z80Asm Include="Z80CodeFiles\graficos.z80asm" />
     <Z80Asm Include="Z80CodeFiles\mapas.z80asm" />
